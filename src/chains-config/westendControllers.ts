@@ -25,6 +25,7 @@ export const westendControllers: ControllerConfig = {
 		'TransactionFeeEstimate',
 		'TransactionMaterial',
 		'TransactionSubmit',
+		'TransactionCompose',
 	],
 	options: {
 		finalizes: true,

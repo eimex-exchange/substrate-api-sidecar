@@ -1,5 +1,6 @@
 import { RequestHandler } from 'express';
 import { ParamsDictionary, Query } from 'express-serve-static-core';
+import { SignedPayload } from  './signer';
 
 /**
  * Body for RequestHandlerTx. In other words, the body of a POST route that sends an encoded transaction.
@@ -28,4 +29,13 @@ export interface IAddressNumberParams extends IAddressParam {
 
 export interface IParaIdParam extends ParamsDictionary {
 	paraId: string;
+}
+
+export interface ICompose {
+	account: string,
+	blocks?: number;
+	nonce?: number;
+	target: string,
+	params: string[],
+	signature?: SignedPayload,
 }

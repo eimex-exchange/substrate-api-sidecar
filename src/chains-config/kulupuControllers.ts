@@ -16,6 +16,7 @@ export const kulupuControllers: ControllerConfig = {
 		'TransactionFeeEstimate',
 		'TransactionMaterial',
 		'TransactionSubmit',
+		'TransactionCompose'
 	],
 	options: {
 		finalizes: false,

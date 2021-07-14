@@ -19,6 +19,7 @@ export const statemintControllers: ControllerConfig = {
 		'TransactionFeeEstimate',
 		'TransactionMaterial',
 		'TransactionSubmit',
+		'TransactionCompose',
 	],
 	options: {
 		finalizes: true,
