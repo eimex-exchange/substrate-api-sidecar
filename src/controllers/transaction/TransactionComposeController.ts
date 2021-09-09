@@ -17,7 +17,7 @@ import AbstractController from '../AbstractController';
  */
 export default class TransactionComposeController extends AbstractController<TransactionComposeService> {
 	constructor(api: ApiPromise) {
-		super(api, '/transactions/compose', new TransactionComposeService(api));
+		super(api, '/transaction/compose', new TransactionComposeService(api));
 		this.initRoutes();
 	}
 
