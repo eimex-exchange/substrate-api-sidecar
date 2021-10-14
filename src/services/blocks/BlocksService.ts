@@ -1,5 +1,6 @@
 import { ApiPromise } from '@polkadot/api';
-import { expandMetadata } from '@polkadot/types';
+import { ApiDecoration } from '@polkadot/api/types';
+import { extractAuthor } from '@polkadot/api-derive/type/util';
 import { Compact, GenericCall, Struct, Vec } from '@polkadot/types';
 import { AbstractInt } from '@polkadot/types/codec/AbstractInt';
 import {
@@ -10,12 +11,14 @@ import {
 	DispatchInfo,
 	EventRecord,
 	Hash,
+	Header,
 } from '@polkadot/types/interfaces';
 import { AnyJson, Codec, Registry } from '@polkadot/types/types';
 import { u8aToHex } from '@polkadot/util';
 import { blake2AsU8a } from '@polkadot/util-crypto';
 import { CalcFee } from '@substrate/calc';
 import { BadRequest, InternalServerError } from 'http-errors';
+import LRU from 'lru-cache';
 
 import {
 	BlockWeightStore,
@@ -65,6 +68,7 @@ export class BlocksService extends AbstractService {
 	constructor(
 		api: ApiPromise,
 		private minCalcFeeRuntime: IOption<number>,
+		private blockStore: LRU<string, IBlock>,
 		private blockWeightStore: BlockWeightStore = {}
 	) {
 		super(api);
@@ -78,6 +82,7 @@ export class BlocksService extends AbstractService {
 	 */
 	async fetchBlock(
 		hash: BlockHash,
+		historicApi: ApiDecoration<'promise'>,
 		{
 			eventDocs,
 			extrinsicDocs,
@@ -88,21 +93,30 @@ export class BlocksService extends AbstractService {
 	): Promise<IBlock> {
 		const { api } = this;
 
-		const [deriveBlock, events, finalizedHead] = await Promise.all([
-			api.derive.chain.getBlock(hash),
-			this.fetchEvents(api, hash),
+		// Before making any api calls check the cache if the queried block exists
+		const isBlockCached = this.blockStore.get(hash.toString());
+
+		if (isBlockCached) {
+			return isBlockCached;
+		}
+
+		const [{ block }, validators, events, finalizedHead] = await Promise.all([
+			api.rpc.chain.getBlock(hash),
+			historicApi.query.session.validators(),
+			this.fetchEvents(historicApi),
 			queryFinalizedHead
 				? api.rpc.chain.getFinalizedHead()
 				: Promise.resolve(hash),
 		]);
 
-		if (deriveBlock === undefined) {
+		if (block === undefined) {
 			throw new InternalServerError('Error querying for block');
 		}
-		const { block, author: authorId } = deriveBlock;
 
 		const { parentHash, number, stateRoot, extrinsicsRoot, digest } =
 			block.header;
+
+		const authorId = extractAuthor(digest, validators);
 
 		const logs = digest.logs.map(({ type, index, value }) => {
 			return { type, index, value };
@@ -159,7 +173,12 @@ export class BlocksService extends AbstractService {
 			calcFee = undefined;
 		} else {
 			// This runtime supports fee calc
-			const createCalcFee = await this.createCalcFee(api, parentHash, block);
+			const createCalcFee = await this.createCalcFee(
+				api,
+				historicApi,
+				parentHash,
+				block
+			);
 			calcFee = createCalcFee.calcFee;
 			specName = createCalcFee.specName;
 			specVersion = createCalcFee.specVersion;
@@ -268,7 +287,7 @@ export class BlocksService extends AbstractService {
 			});
 		}
 
-		return {
+		const response = {
 			number,
 			hash,
 			parentHash,
@@ -281,6 +300,26 @@ export class BlocksService extends AbstractService {
 			onFinalize,
 			finalized,
 		};
+
+		// Store the block in the cache
+		this.blockStore.set(hash.toString(), response);
+
+		return response;
+	}
+
+	/**
+	 * Return the header of a block
+	 *
+	 * @param hash When no hash is inputted the header of the chain will be queried.
+	 */
+	async fetchBlockHeader(hash?: BlockHash): Promise<Header> {
+		const { api } = this;
+
+		const header = hash
+			? await api.rpc.chain.getHeader(hash)
+			: await api.rpc.chain.getHeader();
+
+		return header;
 	}
 
 	/**
@@ -330,7 +369,8 @@ export class BlocksService extends AbstractService {
 			typeof events === 'string' ? block.registry : events.registry;
 
 		return block.extrinsics.map((extrinsic) => {
-			const { method, nonce, signature, signer, isSigned, tip } = extrinsic;
+			const { method, nonce, signature, signer, isSigned, tip, era } =
+				extrinsic;
 			const hash = u8aToHex(blake2AsU8a(extrinsic.toU8a(), 256));
 			const call = registry.createType('Call', method);
 
@@ -345,13 +385,14 @@ export class BlocksService extends AbstractService {
 				tip: isSigned ? tip : null,
 				hash,
 				info: {},
+				era,
 				events: [] as ISanitizedEvent[],
 				success: defaultSuccess,
 				// paysFee overrides to bool if `system.ExtrinsicSuccess|ExtrinsicFailed` event is present
 				// we set to false if !isSigned because unsigned never pays a fee
 				paysFee: isSigned ? null : false,
 				docs: extrinsicDocs
-					? this.sanitizeDocs(extrinsic.meta.documentation)
+					? this.sanitizeDocs(extrinsic.meta.docs)
 					: undefined,
 			};
 		});
@@ -384,9 +425,7 @@ export class BlocksService extends AbstractService {
 						method: event.method,
 					},
 					data: event.data,
-					docs: eventDocs
-						? this.sanitizeDocs(event.data.meta.documentation)
-						: undefined,
+					docs: eventDocs ? this.sanitizeDocs(event.data.meta.docs) : undefined,
 				};
 
 				if (phase.isApplyExtrinsic) {
@@ -444,6 +483,7 @@ export class BlocksService extends AbstractService {
 	 */
 	private async createCalcFee(
 		api: ApiPromise,
+		historicApi: ApiDecoration<'promise'>,
 		parentHash: Hash,
 		block: Block
 	): Promise<ICalcFee> {
@@ -465,14 +505,18 @@ export class BlocksService extends AbstractService {
 			};
 		}
 
+		/**
+		 * This will remain using the original api.query.*.*.at to retrieve the multiplier
+		 * of the `parentHash` block.
+		 */
 		const multiplier =
 			await api.query.transactionPayment?.nextFeeMultiplier?.at(parentHash);
 
-		const perByte = api.consts.transactionPayment?.transactionByteFee;
+		const perByte = historicApi.consts.transactionPayment?.transactionByteFee;
 		const extrinsicBaseWeightExists =
-			api.consts.system.extrinsicBaseWeight ||
-			api.consts.system.blockWeights.perClass.normal.baseExtrinsic;
-		const { weightToFee } = api.consts.transactionPayment;
+			historicApi.consts.system.extrinsicBaseWeight ||
+			historicApi.consts.system.blockWeights.perClass.normal.baseExtrinsic;
+		const { weightToFee } = historicApi.consts.transactionPayment;
 
 		if (!perByte || !extrinsicBaseWeightExists || !multiplier || !weightToFee) {
 			// This particular runtime version is not supported with fee calcs or
@@ -496,10 +540,7 @@ export class BlocksService extends AbstractService {
 
 		// Now that we know the exact runtime supports fee calcs, make sure we have
 		// the weights in the store
-		this.blockWeightStore[specVersion] ||= await this.getWeight(
-			api,
-			parentHash
-		);
+		this.blockWeightStore[specVersion] ||= this.getWeight(historicApi);
 
 		const calcFee = CalcFee.from_params(
 			coefficients,
@@ -523,14 +564,10 @@ export class BlocksService extends AbstractService {
 	 * @param blockHash Hash of a block in the runtime to get the extrinsic base weight(s) for
 	 * @returns formatted block weight store entry
 	 */
-	private async getWeight(
-		api: ApiPromise,
-		blockHash: BlockHash
-	): Promise<WeightValue> {
-		const metadata = await api.rpc.state.getMetadata(blockHash);
+	private getWeight(historicApi: ApiDecoration<'promise'>): WeightValue {
 		const {
 			consts: { system },
-		} = expandMetadata(api.registry, metadata);
+		} = historicApi;
 
 		let weightValue;
 		if ((system.blockWeights as unknown as BlockWeights)?.perClass) {
@@ -598,11 +635,10 @@ export class BlocksService extends AbstractService {
 	 * @param hash `BlockHash` to make query at
 	 */
 	private async fetchEvents(
-		api: ApiPromise,
-		hash: BlockHash
+		historicApi: ApiDecoration<'promise'>
 	): Promise<Vec<EventRecord> | string> {
 		try {
-			return await api.query.system.events.at(hash);
+			return await historicApi.query.system.events();
 		} catch {
 			return 'Unable to fetch Events, cannot confirm extrinsic status. Check pruning settings on the node.';
 		}

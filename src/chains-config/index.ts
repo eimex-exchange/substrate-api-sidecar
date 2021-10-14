@@ -14,6 +14,9 @@ import { kusamaControllers } from './kusamaControllers';
 import { mandalaControllers } from './mandalaControllers';
 import { polkadotControllers } from './polkadotControllers';
 import { polymeshControllers } from './polymeshControllers';
+import { shidenControllers } from './shidenControllers';
+import { soraControllers } from './soraControllers';
+import { statemineControllers } from './statemineControllers';
 import { statemintControllers } from './statemintControllers';
 import { westendControllers } from './westendControllers';
 
@@ -28,10 +31,12 @@ const specToControllerMap = {
 	'dock-main-runtime': dockMainnetControllers,
 	'dock-pos-main-runtime': dockPoSMainnetControllers,
 	'dock-pos-test-runtime': dockTestnetControllers,
+	statemine: statemineControllers,
 	statemint: statemintControllers,
-	statemine: statemintControllers,
-	westmine: statemintControllers,
+	westmine: statemineControllers,
 	westmint: statemintControllers,
+	shiden: shidenControllers,
+	sora: soraControllers,
 };
 
 /**

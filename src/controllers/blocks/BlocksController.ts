@@ -1,14 +1,17 @@
 import { ApiPromise } from '@polkadot/api';
 import { isHex } from '@polkadot/util';
 import { RequestHandler } from 'express';
+import LRU from 'lru-cache';
 
 import { BlocksService } from '../../services';
 import { INumberParam } from '../../types/requests';
+import { IBlock } from '../../types/responses';
 import AbstractController from '../AbstractController';
 
 interface ControllerOptions {
 	finalizes: boolean;
 	minCalcFeeRuntime: null | number;
+	blockStore: LRU<string, IBlock>;
 	blockWeightStore: {};
 }
 
@@ -79,6 +82,7 @@ export default class BlocksController extends AbstractController<BlocksService> 
 			new BlocksService(
 				api,
 				options.minCalcFeeRuntime,
+				options.blockStore,
 				options.blockWeightStore
 			)
 		);
@@ -89,6 +93,8 @@ export default class BlocksController extends AbstractController<BlocksService> 
 		this.safeMountAsyncGetHandlers([
 			['/head', this.getLatestBlock],
 			['/:number', this.getBlockById],
+			['/head/header', this.getLatestBlockHeader],
+			['/:number/header', this.getBlockHeaderById],
 		]);
 	}
 
@@ -112,6 +118,9 @@ export default class BlocksController extends AbstractController<BlocksService> 
 			queryFinalizedHead = false;
 			hash = (await this.api.rpc.chain.getHeader()).hash;
 		} else if (finalized === 'false') {
+			// We query the finalized head to know where the latest finalized block
+			// is. It is a way to confirm whether the queried block is less than or
+			// equal to the finalized head.
 			omitFinalizedTag = false;
 			queryFinalizedHead = true;
 			hash = (await this.api.rpc.chain.getHeader()).hash;
@@ -129,9 +138,11 @@ export default class BlocksController extends AbstractController<BlocksService> 
 			omitFinalizedTag,
 		};
 
+		const historicApi = await this.api.at(hash);
+
 		BlocksController.sanitizedSend(
 			res,
-			await this.service.fetchBlock(hash, options)
+			await this.service.fetchBlock(hash, historicApi, options)
 		);
 	};
 
@@ -163,10 +174,53 @@ export default class BlocksController extends AbstractController<BlocksService> 
 			omitFinalizedTag,
 		};
 
+		// HistoricApi to fetch any historic information that doesnt include the current runtime
+		const historicApi = await this.api.at(hash);
+
 		// We set the last param to true because we haven't queried the finalizedHead
 		BlocksController.sanitizedSend(
 			res,
-			await this.service.fetchBlock(hash, options)
+			await this.service.fetchBlock(hash, historicApi, options)
+		);
+	};
+
+	/**
+	 * Return the Header of the identified block.
+	 *
+	 * @param req Express Request
+	 * @param res Express Response
+	 */
+	private getBlockHeaderById: RequestHandler<INumberParam> = async (
+		{ params: { number } },
+		res
+	): Promise<void> => {
+		const hash = await this.getHashForBlock(number);
+
+		BlocksController.sanitizedSend(
+			res,
+			await this.service.fetchBlockHeader(hash)
+		);
+	};
+
+	/**
+	 * Return the header of the latest block
+	 *
+	 * @param req Express Request
+	 * @param res Express Response
+	 */
+	private getLatestBlockHeader: RequestHandler = async (
+		{ query: { finalized } },
+		res
+	): Promise<void> => {
+		const paramFinalized = finalized !== 'false';
+
+		const hash = paramFinalized
+			? await this.api.rpc.chain.getFinalizedHead()
+			: undefined;
+
+		BlocksController.sanitizedSend(
+			res,
+			await this.service.fetchBlockHeader(hash)
 		);
 	};
 }

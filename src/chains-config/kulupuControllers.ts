@@ -1,4 +1,5 @@
 import { ControllerConfig } from '../types/chains-config';
+import { initLRUCache } from './cache/lruCache';
 
 export const kulupuControllers: ControllerConfig = {
 	controllers: [
@@ -22,5 +23,6 @@ export const kulupuControllers: ControllerConfig = {
 		finalizes: false,
 		minCalcFeeRuntime: null,
 		blockWeightStore: {},
+		blockStore: initLRUCache(),
 	},
 };

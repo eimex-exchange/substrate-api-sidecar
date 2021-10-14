@@ -1,4 +1,5 @@
 import { ControllerConfig } from '../types/chains-config';
+import { initLRUCache } from './cache/lruCache';
 import { getBlockWeight } from './metadata-consts';
 
 /**
@@ -31,5 +32,6 @@ export const polkadotControllers: ControllerConfig = {
 		finalizes: true,
 		minCalcFeeRuntime: 0,
 		blockWeightStore: getBlockWeight('polkadot'),
+		blockStore: initLRUCache(),
 	},
 };
