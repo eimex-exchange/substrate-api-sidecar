@@ -27,3 +27,4 @@ export * from './SanitizedStorageItemMetadata';
 export * from './TransactionDryRun';
 export * from './TransactionMaterial';
 export * from './TransactionCompose';
+export * from './ValidateAddress';
