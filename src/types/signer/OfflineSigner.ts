@@ -1,8 +1,10 @@
 import type { Signer, SignerResult } from '@polkadot/api/types';
 import type { SignerPayloadRaw } from '@polkadot/types/types';
+import type { HexString } from '@polkadot/util/types';
 import { blake2AsHex } from '@polkadot/util-crypto';
-
 import { Signature, encode } from './Signature';
+
+const BLANK_SIGNATURE: HexString = '0x0100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000';
 
 export class OfflineSigner implements Signer {
 	private result: SignerResult;
@@ -12,7 +14,7 @@ export class OfflineSigner implements Signer {
 		this.signRaw = this.signRaw.bind(this);
 		this.signature = signature;
 		this.result = {
-			signature: '',
+			signature: BLANK_SIGNATURE,
 			id: 0,
 		}
 	}
@@ -33,16 +35,16 @@ export class OfflineSigner implements Signer {
 					id: 0
 				});
 			} else {
-				const hashed = (data.length > (256 + 1) * 2)
+				const hashed: HexString = (data.length > (256 + 1) * 2)
 					? blake2AsHex(data)
-					: data;
+					: BLANK_SIGNATURE;
 
 				this.result = {
 					signature: hashed,
 					id: 0
 				}
 				resolve({
-					signature: '0x0100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+					signature: BLANK_SIGNATURE,
 					id: -1
 				});
 			}
