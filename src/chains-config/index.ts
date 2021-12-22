@@ -4,15 +4,18 @@ import { AbstractService } from 'src/services/AbstractService';
 
 import { controllers } from '../controllers';
 import { ControllerConfig } from '../types/chains-config';
+import { acalaControllers } from './acalaControllers';
 import { calamariControllers } from './calamariControllers';
 import { defaultControllers } from './defaultControllers';
 import { dockMainnetControllers } from './dockMainnetControllers';
 import { dockPoSMainnetControllers } from './dockPoSMainnetControllers';
 import { dockTestnetControllers } from './dockPoSTestnetControllers';
+import { karuraControllers } from './karuraControllers';
 import { kiltControllers } from './kiltControllers';
 import { kulupuControllers } from './kulupuControllers';
 import { kusamaControllers } from './kusamaControllers';
 import { mandalaControllers } from './mandalaControllers';
+import { mantaControllers } from './mantaControllers';
 import { polkadotControllers } from './polkadotControllers';
 import { polymeshControllers } from './polymeshControllers';
 import { shidenControllers } from './shidenControllers';
@@ -39,6 +42,9 @@ const specToControllerMap = {
 	shiden: shidenControllers,
 	sora: soraControllers,
 	calamari: calamariControllers,
+	karura: karuraControllers,
+	acala: acalaControllers,
+	manta: mantaControllers,
 };
 
 /**
