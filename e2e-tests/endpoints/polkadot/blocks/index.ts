@@ -13,6 +13,11 @@ import block6400003 from './6400003.json';
 import block6800002 from './6800002.json';
 import block7217908 from './7217908.json';
 import block7300000 from './7300000.json';
+import block8000000 from './8000000.json';
+import block8320000 from './8320000.json';
+import block8500000 from './8500000.json';
+import block8891183 from './8891183.json';
+import block9500000 from './9500000.json';
 
 export const polkadotBlockEndpoints = [
 	['/blocks/943438', JSON.stringify(block943438)], //v17
@@ -30,4 +35,9 @@ export const polkadotBlockEndpoints = [
 	['/blocks/6800002', JSON.stringify(block6800002)], //v9090
 	['/blocks/7217908', JSON.stringify(block7217908)], //v9100
 	['/blocks/7300000', JSON.stringify(block7300000)], //v9110
+	['/blocks/8000000', JSON.stringify(block8000000)], //v9122
+	['/blocks/8320000', JSON.stringify(block8320000)], //v9130
+	['/blocks/8500000', JSON.stringify(block8500000)], //v9140
+	['/blocks/8891183', JSON.stringify(block8891183)], //v9151
+	['/blocks/9500000', JSON.stringify(block9500000)], //v9170
 ];

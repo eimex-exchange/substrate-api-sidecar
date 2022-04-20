@@ -25,8 +25,7 @@ export const statemintControllers: ControllerConfig = {
 	],
 	options: {
 		finalizes: true,
-		minCalcFeeRuntime: 2,
-		blockWeightStore: {},
+		minCalcFeeRuntime: 601,
 		blockStore: initLRUCache(),
 	},
 };

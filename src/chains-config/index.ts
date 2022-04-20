@@ -5,7 +5,10 @@ import { AbstractService } from 'src/services/AbstractService';
 import { controllers } from '../controllers';
 import { ControllerConfig } from '../types/chains-config';
 import { acalaControllers } from './acalaControllers';
+import { astarControllers } from './astarControllers';
+import { bifrostControllers } from './bifrostControllers';
 import { calamariControllers } from './calamariControllers';
+import { crustControllers } from './crustControllers';
 import { defaultControllers } from './defaultControllers';
 import { dockMainnetControllers } from './dockMainnetControllers';
 import { dockPoSMainnetControllers } from './dockPoSMainnetControllers';
@@ -40,11 +43,14 @@ const specToControllerMap = {
 	westmine: statemineControllers,
 	westmint: statemintControllers,
 	shiden: shidenControllers,
+	astar: astarControllers,
 	sora: soraControllers,
 	calamari: calamariControllers,
 	karura: karuraControllers,
 	acala: acalaControllers,
 	manta: mantaControllers,
+	crust: crustControllers,
+	bifrost: bifrostControllers,
 };
 
 /**
