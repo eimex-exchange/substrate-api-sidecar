@@ -1,8 +1,23 @@
+// Copyright 2017-2022 Parity Technologies (UK) Ltd.
+// This file is part of Substrate API Sidecar.
+//
+// Substrate API Sidecar is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import { ApiPromise } from '@polkadot/api';
 import { ApiDecoration } from '@polkadot/api/types';
-import { AugmentedConst } from '@polkadot/api/types';
 import { PromiseRpcResult } from '@polkadot/api-base/types/rpc';
-import { GenericExtrinsic, u128 } from '@polkadot/types';
+import { GenericExtrinsic } from '@polkadot/types';
 import { GenericCall } from '@polkadot/types/generic';
 import { BlockHash, Hash, SignedBlock } from '@polkadot/types/interfaces';
 import { BadRequest } from 'http-errors';
@@ -14,18 +29,22 @@ import {
 	kusamaRegistry,
 	polkadotRegistry,
 } from '../../test-helpers/registries';
-import { ExtBaseWeightValue, PerClassValue } from '../../types/chains-config';
-import { IBlock, IExtrinsic } from '../../types/responses/';
+import { IBlock, ISanitizedEvent } from '../../types/responses/';
 import {
 	blockHash20000,
 	blockHash100000,
 	blockHash789629,
 	defaultMockApi,
-	mockBlock789629,
 	mockForkedBlock789629,
 } from '../test-helpers/mock';
 import block789629 from '../test-helpers/mock/data/block789629.json';
 import { events789629 } from '../test-helpers/mock/data/events789629Hex';
+import {
+	balancesDepositEvent,
+	constructEvent,
+	treasuryEvent,
+	withdrawEvent,
+} from '../test-helpers/mock/data/mockEventData';
 import { validators789629Hex } from '../test-helpers/mock/data/validators789629Hex';
 import { parseNumberOrThrow } from '../test-helpers/mock/parseNumberOrThrow';
 import block789629Extrinsic from '../test-helpers/responses/blocks/block789629Extrinsic.json';
@@ -95,13 +114,6 @@ type GetBlock = PromiseRpcResult<
 	(hash?: string | BlockHash | Uint8Array | undefined) => Promise<SignedBlock>
 >;
 
-/**
- * Interface for the reponse in `fetchBlock` test suite
- */
-interface ResponseObj {
-	extrinsics: IExtrinsic[];
-}
-
 // LRU cache used to cache blocks
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
 const cache = new LRU({ max: 2 }) as LRU<string, IBlock>;
@@ -122,6 +134,7 @@ describe('BlocksService', () => {
 				checkFinalized: false,
 				queryFinalizedHead: false,
 				omitFinalizedTag: false,
+				getFeeByEvent: false,
 			};
 
 			expect(
@@ -157,6 +170,7 @@ describe('BlocksService', () => {
 				checkFinalized: false,
 				queryFinalizedHead: false,
 				omitFinalizedTag: false,
+				getFeeByEvent: false,
 			};
 			const tempGetBlock = mockApi.rpc.chain.getBlock;
 			mockApi.rpc.chain.getBlock = (() =>
@@ -183,6 +197,7 @@ describe('BlocksService', () => {
 				checkFinalized: false,
 				queryFinalizedHead: false,
 				omitFinalizedTag: true,
+				getFeeByEvent: false,
 			};
 
 			const block = await blocksService.fetchBlock(
@@ -192,132 +207,6 @@ describe('BlocksService', () => {
 			);
 
 			expect(block.finalized).toEqual(undefined);
-		});
-
-		it('Return an error with a null calcFee when perByte is undefined', async () => {
-			mockHistoricApi.consts.transactionPayment.transactionByteFee =
-				undefined as unknown as u128 & AugmentedConst<'promise'>;
-
-			const configuredBlocksService = new BlocksService(mockApi, 0, new LRU());
-
-			// fetchBlock options
-			const options = {
-				eventDocs: true,
-				extrinsicDocs: true,
-				checkFinalized: false,
-				queryFinalizedHead: false,
-				omitFinalizedTag: false,
-			};
-
-			const response = sanitizeNumbers(
-				await configuredBlocksService.fetchBlock(
-					blockHash789629,
-					mockHistoricApi,
-					options
-				)
-			);
-
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-			const responseObj: ResponseObj = JSON.parse(JSON.stringify(response));
-
-			// Revert mockApi back to its original setting that was changed above.
-			mockHistoricApi.consts.transactionPayment.transactionByteFee =
-				polkadotRegistry.createType('Balance', 1000000) as u128 &
-					AugmentedConst<'promise'>;
-
-			expect(responseObj.extrinsics[3].info).toEqual({
-				error: 'Fee calculation not supported for 16#polkadot',
-			});
-		});
-	});
-
-	describe('createCalcFee & calc_fee', () => {
-		it('calculates partialFee for proxy.proxy in polkadot block 789629', async () => {
-			// Reset LRU cache
-			cache.reset();
-			// tx hash: 0x6d6c0e955650e689b14fb472daf14d2bdced258c748ded1d6cb0da3bfcc5854f
-			const { calcFee } = await blocksService['createCalcFee'](
-				mockApi,
-				mockHistoricApi,
-				'0xParentHash' as unknown as Hash,
-				mockBlock789629
-			);
-
-			expect(calcFee?.calc_fee(BigInt(399480000), 534, BigInt(125000000))).toBe(
-				'544000000'
-			);
-		});
-
-		it('calculates partialFee for utility.batch in polkadot block 789629', async () => {
-			// Reset LRU cache
-			cache.reset();
-			// tx hash: 0xc96b4d442014fae60c932ea50cba30bf7dea3233f59d1fe98c6f6f85bfd51045
-			const { calcFee } = await blocksService['createCalcFee'](
-				mockApi,
-				mockHistoricApi,
-				'0xParentHash' as unknown as Hash,
-				mockBlock789629
-			);
-
-			expect(
-				calcFee?.calc_fee(BigInt(941325000000), 1247, BigInt(125000000))
-			).toBe('1257000075');
-		});
-	});
-
-	describe('BlocksService.getWeight', () => {
-		it('Should return correct `extrinsicBaseWeight`', () => {
-			// Reset LRU cache
-			cache.reset();
-
-			const weightValue = blocksService['getWeight'](mockHistoricApi);
-
-			expect(
-				(weightValue as unknown as ExtBaseWeightValue).extrinsicBaseWeight
-			).toBe(BigInt(125000000));
-		});
-
-		it('Should return correct `blockWeights`', () => {
-			// Reset LRU cache
-			cache.reset();
-
-			/**
-			 * This is the mockApi adjusted to mock a runtime that uses
-			 * consts.system.blockWeights for its weight nomination.
-			 */
-			const mockHistoricApiAdjusted = {
-				consts: {
-					system: {
-						blockWeights: {
-							perClass: {
-								normal: {
-									baseExtrinsic: polkadotRegistry.createType('u64', 125000000),
-								},
-								operational: {
-									baseExtrinsic: polkadotRegistry.createType('u64', 125000000),
-								},
-								mandatory: {
-									baseExtrinsic: polkadotRegistry.createType('u64', 125000000),
-								},
-							},
-						},
-					},
-				},
-			} as unknown as ApiDecoration<'promise'>;
-
-			const weightValue = blocksService['getWeight'](mockHistoricApiAdjusted);
-
-			expect(
-				(weightValue as unknown as PerClassValue).perClass.normal.baseExtrinsic
-			).toBe(BigInt(125000000));
-			expect(
-				(weightValue as unknown as PerClassValue).perClass.operational
-					.baseExtrinsic
-			).toBe(BigInt(125000000));
-			expect(
-				(weightValue as unknown as PerClassValue).perClass.mandatory
-					.baseExtrinsic
-			).toBe(BigInt(125000000));
 		});
 	});
 
@@ -533,6 +422,7 @@ describe('BlocksService', () => {
 			checkFinalized: false,
 			queryFinalizedHead: false,
 			omitFinalizedTag: false,
+			getFeeByEvent: false,
 		};
 
 		it('Returns the correct extrinisics object for block 789629', async () => {
@@ -638,6 +528,7 @@ describe('BlocksService', () => {
 			checkFinalized: false,
 			queryFinalizedHead: false,
 			omitFinalizedTag: false,
+			getFeeByEvent: false,
 		};
 
 		it('Should correctly store the most recent queried blocks', async () => {
@@ -660,6 +551,90 @@ describe('BlocksService', () => {
 
 			expect(cache.get(blockHash789629.toString())).toBe(undefined);
 			expect(cache.length).toBe(2);
+		});
+	});
+
+	describe('FeeByEvent', () => {
+		describe('getPartialFeeByEvents', () => {
+			const partialFee = polkadotRegistry.createType('Balance', '2490128143');
+			const expectedResponse = { partialFee: '2490128143' };
+
+			it('Should retrieve the correct fee for balances::withdraw events', () => {
+				const response = blocksService['getPartialFeeByEvents'](
+					withdrawEvent,
+					partialFee
+				);
+
+				expect(response).toStrictEqual(expectedResponse);
+			});
+
+			it('Should retrieve the correct fee for treasury::deposit events', () => {
+				const response = blocksService['getPartialFeeByEvents'](
+					treasuryEvent,
+					partialFee
+				);
+
+				expect(response).toStrictEqual(expectedResponse);
+			});
+
+			it('Should retrieve the correct fee for balances::deposit events', () => {
+				const response = blocksService['getPartialFeeByEvents'](
+					balancesDepositEvent,
+					partialFee
+				);
+
+				expect(response).toStrictEqual(expectedResponse);
+			});
+
+			it('Should error correctly when there is no fee in the events', () => {
+				const expectedResponseWithError = {
+					...expectedResponse,
+					error: 'Could not find a reliable fee within the events data.',
+				};
+				const emptyArray = [] as unknown as ISanitizedEvent[];
+				const response = blocksService['getPartialFeeByEvents'](
+					emptyArray,
+					partialFee
+				);
+
+				expect(response).toStrictEqual(expectedResponseWithError);
+			});
+		});
+
+		describe('getPartialFeeInfo', () => {
+			const mockEvent = [
+				constructEvent('balances', 'Withdraw', ['0x', '149000011']),
+			];
+
+			it('Should correctly handle `getEventByFee` when true', async () => {
+				const response = await blocksService['getPartialFeeInfo'](
+					mockEvent,
+					'0x',
+					blockHash789629,
+					true
+				);
+
+				expect(sanitizeNumbers(response)).toStrictEqual({
+					dispatchClass: 'Normal',
+					partialFee: '149000011',
+					error: undefined,
+				});
+			});
+
+			it('Should correctly handle `getEventByFee` when false', async () => {
+				const response = await blocksService['getPartialFeeInfo'](
+					mockEvent,
+					'0x',
+					blockHash789629,
+					false
+				);
+
+				expect(sanitizeNumbers(response)).toStrictEqual({
+					dispatchClass: 'Normal',
+					partialFee: '149000000',
+					error: undefined,
+				});
+			});
 		});
 	});
 });

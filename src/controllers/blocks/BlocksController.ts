@@ -1,11 +1,29 @@
+// Copyright 2017-2022 Parity Technologies (UK) Ltd.
+// This file is part of Substrate API Sidecar.
+//
+// Substrate API Sidecar is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import { ApiPromise } from '@polkadot/api';
 import { isHex } from '@polkadot/util';
 import { RequestHandler } from 'express';
+import { BadRequest } from 'http-errors';
 import LRU from 'lru-cache';
 
 import { BlocksService } from '../../services';
-import { INumberParam } from '../../types/requests';
+import { INumberParam, IRangeQueryParam } from '../../types/requests';
 import { IBlock } from '../../types/responses';
+import { PromiseQueue } from '../../util/PromiseQueue';
 import AbstractController from '../AbstractController';
 
 interface ControllerOptions {
@@ -85,6 +103,7 @@ export default class BlocksController extends AbstractController<BlocksService> 
 
 	protected initRoutes(): void {
 		this.safeMountAsyncGetHandlers([
+			['/', this.getBlocks],
 			['/head', this.getLatestBlock],
 			['/:number', this.getBlockById],
 			['/head/header', this.getLatestBlockHeader],
@@ -99,11 +118,12 @@ export default class BlocksController extends AbstractController<BlocksService> 
 	 * @param res Express Response
 	 */
 	private getLatestBlock: RequestHandler = async (
-		{ query: { eventDocs, extrinsicDocs, finalized } },
+		{ query: { eventDocs, extrinsicDocs, finalized, feeByEvent } },
 		res
 	) => {
 		const eventDocsArg = eventDocs === 'true';
 		const extrinsicDocsArg = extrinsicDocs === 'true';
+		const getFeeByEvent = feeByEvent === 'true';
 
 		let hash, queryFinalizedHead, omitFinalizedTag;
 		if (!this.options.finalizes) {
@@ -130,6 +150,7 @@ export default class BlocksController extends AbstractController<BlocksService> 
 			checkFinalized: false,
 			queryFinalizedHead,
 			omitFinalizedTag,
+			getFeeByEvent,
 		};
 
 		const historicApi = await this.api.at(hash);
@@ -147,7 +168,7 @@ export default class BlocksController extends AbstractController<BlocksService> 
 	 * @param res Express Response
 	 */
 	private getBlockById: RequestHandler<INumberParam> = async (
-		{ params: { number }, query: { eventDocs, extrinsicDocs } },
+		{ params: { number }, query: { eventDocs, extrinsicDocs, feeByEvent } },
 		res
 	): Promise<void> => {
 		const checkFinalized = isHex(number);
@@ -156,6 +177,7 @@ export default class BlocksController extends AbstractController<BlocksService> 
 
 		const eventDocsArg = eventDocs === 'true';
 		const extrinsicDocsArg = extrinsicDocs === 'true';
+		const getFeeByEvent = feeByEvent === 'true';
 
 		const queryFinalizedHead = !this.options.finalizes ? false : true;
 		const omitFinalizedTag = !this.options.finalizes ? true : false;
@@ -166,6 +188,7 @@ export default class BlocksController extends AbstractController<BlocksService> 
 			checkFinalized,
 			queryFinalizedHead,
 			omitFinalizedTag,
+			getFeeByEvent,
 		};
 
 		// HistoricApi to fetch any historic information that doesnt include the current runtime
@@ -216,5 +239,64 @@ export default class BlocksController extends AbstractController<BlocksService> 
 			res,
 			await this.service.fetchBlockHeader(hash)
 		);
+	};
+
+	/**
+	 * Return a collection of blocks, given a range.
+	 *
+	 * @param req Express Request
+	 * @param res Express Response
+	 */
+	private getBlocks: RequestHandler<
+		unknown,
+		unknown,
+		unknown,
+		IRangeQueryParam
+	> = async (
+		{ query: { range, eventDocs, extrinsicDocs, feeByEvent } },
+		res
+	): Promise<void> => {
+		if (!range) throw new BadRequest('range query parameter must be inputted.');
+
+		// We set a max range to 500 blocks.
+		const rangeOfNums = this.parseRangeOfNumbersOrThrow(range, 500);
+
+		const eventDocsArg = eventDocs === 'true';
+		const extrinsicDocsArg = extrinsicDocs === 'true';
+		const getFeeByEvent = feeByEvent === 'true';
+		const queryFinalizedHead = !this.options.finalizes ? false : true;
+		const omitFinalizedTag = !this.options.finalizes ? true : false;
+		const options = {
+			eventDocs: eventDocsArg,
+			extrinsicDocs: extrinsicDocsArg,
+			checkFinalized: false,
+			queryFinalizedHead,
+			omitFinalizedTag,
+			getFeeByEvent,
+		};
+
+		const pQueue = new PromiseQueue(4);
+		const blocksPromise: Promise<unknown>[] = [];
+
+		for (let i = 0; i < rangeOfNums.length; i++) {
+			const result = pQueue.run(async () => {
+				// Get block hash:
+				const hash = await this.getHashForBlock(rangeOfNums[i].toString());
+				// Get API at that hash:
+				const historicApi = await this.api.at(hash);
+				// Get block details using this API/hash:
+				return await this.service.fetchBlock(hash, historicApi, options);
+			});
+			blocksPromise.push(result);
+		}
+
+		const blocks = (await Promise.all(blocksPromise)) as IBlock[];
+
+		/**
+		 * Sort blocks from least to greatest.
+		 */
+		blocks.sort((a, b) => a.number.toNumber() - b.number.toNumber());
+
+		BlocksController.sanitizedSend(res, blocks);
 	};
 }

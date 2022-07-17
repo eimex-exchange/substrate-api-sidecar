@@ -1,3 +1,19 @@
+// Copyright 2017-2022 Parity Technologies (UK) Ltd.
+// This file is part of Substrate API Sidecar.
+//
+// Substrate API Sidecar is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import {
 	BTreeMap,
 	BTreeSet,
@@ -48,7 +64,11 @@ import {
 	MIN_I64,
 	MIN_I128,
 } from '../test-helpers/constants';
-import { kusamaRegistry, polkadotRegistry } from '../test-helpers/registries';
+import {
+	kusamaRegistry,
+	polkadotRegistry,
+	polkadotRegistryV9190,
+} from '../test-helpers/registries';
 import {
 	PRE_SANITIZED_BALANCE_LOCK,
 	PRE_SANITIZED_OPTION_VESTING_INFO,
@@ -1156,5 +1176,92 @@ describe('sanitizeNumbers', () => {
 			'5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
 			'5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
 		]);
+	});
+
+	describe('handles metadata v14 correctly', () => {
+		const sanitizeOptions = {
+			metadataOpts: {
+				registry: polkadotRegistryV9190,
+				version: 14,
+			},
+		};
+
+		it('handles unknown struct bytes correctly for Option<u128>', () => {
+			const struct = new Struct(
+				polkadotRegistryV9190,
+				{ type: 'Text', value: 'Bytes' },
+				{ type: '535', value: '0x01005039278c0400000000000000000000' } // Option<u128>
+			);
+
+			expect(sanitizeNumbers(struct, sanitizeOptions)).toStrictEqual({
+				type: '535',
+				value: '5000000000000',
+			});
+		});
+
+		it('handles unknown struct bytes correctly for u128', () => {
+			const struct = new Struct(
+				polkadotRegistryV9190,
+				{ type: 'Text', value: 'Bytes' },
+				{ type: '6', value: '0x00e87648170000000000000000000000' } // u128
+			);
+
+			expect(sanitizeNumbers(struct, sanitizeOptions)).toStrictEqual({
+				type: '6',
+				value: '100000000000',
+			});
+		});
+
+		it('handles unknown struct bytes correctly for u64', () => {
+			const struct = new Struct(
+				polkadotRegistryV9190,
+				{ type: 'Text', value: 'Bytes' },
+				{ type: '8', value: '0xc084666557010000' } // u64
+			);
+
+			expect(sanitizeNumbers(struct, sanitizeOptions)).toStrictEqual({
+				type: '8',
+				value: '1474875000000',
+			});
+		});
+
+		it('handles unknown struct bytes correctly for u32', () => {
+			const struct = new Struct(
+				polkadotRegistryV9190,
+				{ type: 'Text', value: 'Bytes' },
+				{ type: '4', value: '0x00400000' } // u32
+			);
+
+			expect(sanitizeNumbers(struct, sanitizeOptions)).toStrictEqual({
+				type: '4',
+				value: '16384',
+			});
+		});
+
+		it('handles unknown struct bytes correctly for u16', () => {
+			const struct = new Struct(
+				polkadotRegistryV9190,
+				{ type: 'Text', value: 'Bytes' },
+				{ type: '75', value: '0x0200' } // u16
+			);
+
+			expect(sanitizeNumbers(struct, sanitizeOptions)).toStrictEqual({
+				type: '75',
+				value: '2',
+			});
+		});
+
+		it('handles unknown struct bytes correctly for u8', () => {
+			const struct = new Struct(
+				polkadotRegistryV9190,
+				{ type: 'Text', value: 'Bytes' },
+				{ type: '2', value: '0x05' } // u8
+			);
+
+			expect(sanitizeNumbers(struct, sanitizeOptions)).toStrictEqual({
+				type: '2',
+				value: '5',
+			});
+		});
 	});
 });

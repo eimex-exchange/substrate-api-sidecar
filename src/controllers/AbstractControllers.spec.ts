@@ -1,3 +1,19 @@
+// Copyright 2017-2022 Parity Technologies (UK) Ltd.
+// This file is part of Substrate API Sidecar.
+//
+// Substrate API Sidecar is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { ApiPromise } from '@polkadot/api';
 import { Compact } from '@polkadot/types';
@@ -298,6 +314,50 @@ describe('AbstractController', () => {
 			);
 
 			api.createType = kusamaRegistry.createType.bind(kusamaRegistry);
+		});
+	});
+
+	describe('parseRangeOfNumbersOrThrow', () => {
+		it('Should return the correct array given a range', () => {
+			const res = controller['parseRangeOfNumbersOrThrow']('100-103', 500);
+
+			expect(res).toStrictEqual([100, 101, 102, 103]);
+		});
+
+		it('Should throw an error when the inputted format is wrong', () => {
+			const badFormatRequest = new BadRequest(
+				'Incorrect range format. Expected example: 0-999'
+			);
+			const badMinRequest = new BadRequest(
+				'Inputted min value for range must be an unsigned integer.'
+			);
+			const badMaxRequest = new BadRequest(
+				'Inputted max value for range must be an unsigned non zero integer.'
+			);
+			const badMaxMinRequest = new BadRequest(
+				'Inputted min value cannot be greater than or equal to the max value.'
+			);
+			const badMaxRangeRequest = new BadRequest(
+				'Inputted range is greater than the 500 range limit.'
+			);
+			expect(() =>
+				controller['parseRangeOfNumbersOrThrow']('100', 500)
+			).toThrow(badFormatRequest);
+			expect(() =>
+				controller['parseRangeOfNumbersOrThrow']('h-100', 500)
+			).toThrow(badMinRequest);
+			expect(() =>
+				controller['parseRangeOfNumbersOrThrow']('100-h', 500)
+			).toThrow(badMaxRequest);
+			expect(() =>
+				controller['parseRangeOfNumbersOrThrow']('100-1', 500)
+			).toThrow(badMaxMinRequest);
+			expect(() =>
+				controller['parseRangeOfNumbersOrThrow']('1-1', 500)
+			).toThrow(badMaxMinRequest);
+			expect(() =>
+				controller['parseRangeOfNumbersOrThrow']('2-503', 500)
+			).toThrow(badMaxRangeRequest);
 		});
 	});
 });

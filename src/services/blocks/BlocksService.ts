@@ -1,3 +1,19 @@
+// Copyright 2017-2022 Parity Technologies (UK) Ltd.
+// This file is part of Substrate API Sidecar.
+//
+// Substrate API Sidecar is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import { ApiPromise } from '@polkadot/api';
 import { ApiDecoration } from '@polkadot/api/types';
 import { extractAuthor } from '@polkadot/api-derive/type/util';
@@ -10,26 +26,17 @@ import {
 	BlockNumber,
 	DispatchInfo,
 	EventRecord,
-	Hash,
 	Header,
 } from '@polkadot/types/interfaces';
 import { AnyJson, Codec, Registry } from '@polkadot/types/types';
-import { AbstractInt } from '@polkadot/types-codec';
 import { u8aToHex } from '@polkadot/util';
 import { blake2AsU8a } from '@polkadot/util-crypto';
-import { CalcFee } from '@substrate/calc';
+import BN from 'bn.js';
 import { BadRequest, InternalServerError } from 'http-errors';
 import LRU from 'lru-cache';
 
 import {
-	IPerClass,
-	isExtBaseWeightValue,
-	isPerClassValue,
-	WeightValue,
-} from '../../types/chains-config';
-import {
 	IBlock,
-	ICalcFee,
 	IExtrinsic,
 	IExtrinsicIndex,
 	ISanitizedCall,
@@ -38,6 +45,7 @@ import {
 } from '../../types/responses';
 import { IOption } from '../../types/util';
 import { isPaysFee } from '../../types/util';
+import { subIntegers } from '../../util/integers/compare';
 import { AbstractService } from '../AbstractService';
 
 /**
@@ -54,6 +62,7 @@ interface FetchBlockOptions {
 	checkFinalized: boolean;
 	queryFinalizedHead: boolean;
 	omitFinalizedTag: boolean;
+	getFeeByEvent: boolean;
 }
 
 /**
@@ -62,6 +71,8 @@ interface FetchBlockOptions {
 enum Event {
 	success = 'ExtrinsicSuccess',
 	failure = 'ExtrinsicFailed',
+	withdraw = 'Withdraw',
+	deposit = 'Deposit',
 }
 
 export class BlocksService extends AbstractService {
@@ -88,6 +99,7 @@ export class BlocksService extends AbstractService {
 			checkFinalized,
 			queryFinalizedHead,
 			omitFinalizedTag,
+			getFeeByEvent,
 		}: FetchBlockOptions
 	): Promise<IBlock> {
 		const { api } = this;
@@ -99,8 +111,15 @@ export class BlocksService extends AbstractService {
 			return isBlockCached;
 		}
 
-		const [{ block }, validators, events, finalizedHead] = await Promise.all([
+		const [
+			{ block },
+			{ specName, specVersion },
+			validators,
+			events,
+			finalizedHead,
+		] = await Promise.all([
 			api.rpc.chain.getBlock(hash),
+			api.rpc.state.getRuntimeVersion(hash),
 			this.fetchValidators(historicApi),
 			this.fetchEvents(historicApi),
 			queryFinalizedHead
@@ -165,26 +184,6 @@ export class BlocksService extends AbstractService {
 			};
 		}
 
-		let calcFee, specName, specVersion, weights;
-		if (this.minCalcFeeRuntime === null) {
-			// Don't bother with trying to create calcFee for a runtime where fee calcs are not supported
-			specVersion = -1;
-			specName = 'ERROR';
-			calcFee = undefined;
-		} else {
-			// This runtime supports fee calc
-			const createCalcFee = await this.createCalcFee(
-				api,
-				historicApi,
-				parentHash,
-				block
-			);
-			calcFee = createCalcFee.calcFee;
-			specName = createCalcFee.specName;
-			specVersion = createCalcFee.specVersion;
-			weights = createCalcFee.weights;
-		}
-
 		for (let idx = 0; idx < block.extrinsics.length; ++idx) {
 			if (!extrinsics[idx].paysFee || !block.extrinsics[idx].isSigned) {
 				continue;
@@ -197,9 +196,9 @@ export class BlocksService extends AbstractService {
 				continue;
 			}
 
-			if (calcFee === null || calcFee === undefined) {
+			if (this.minCalcFeeRuntime > specVersion.toNumber()) {
 				extrinsics[idx].info = {
-					error: `Fee calculation not supported for ${specVersion}#${specName}`,
+					error: `Fee calculation not supported for ${specVersion.toString()}#${specName.toString()}`,
 				};
 				continue;
 			}
@@ -243,45 +242,32 @@ export class BlocksService extends AbstractService {
 				continue;
 			}
 
-			// The Dispatch class used to key into `blockWeights.perClass`
-			// We set default to be normal.
-			let weightInfoClass: keyof IPerClass = 'normal';
-			if (weightInfo.class.isMandatory) {
-				weightInfoClass = 'mandatory';
-			} else if (weightInfo.class.isOperational) {
-				weightInfoClass = 'operational';
+			if (!api.rpc.payment || !api.rpc.payment.queryInfo) {
+				extrinsics[idx].info = {
+					error: 'Rpc method payment::queryInfo is not available',
+				};
+
+				continue;
 			}
 
-			/**
-			 * `extrinsicBaseWeight` changed from using system.extrinsicBaseWeight => system.blockWeights.perClass[weightInfoClass].baseExtrinsic
-			 * in polkadot v0.8.27 due to this pr: https://github.com/paritytech/substrate/pull/6629 .
-			 * https://github.com/paritytech/substrate-api-sidecar/issues/393 .
-			 * https://github.com/polkadot-js/api/issues/2365
-			 */
-			// This makes the compiler happy for below type guards
-			let extrinsicBaseWeight;
-			if (isExtBaseWeightValue(weights)) {
-				extrinsicBaseWeight = weights.extrinsicBaseWeight;
-			} else if (isPerClassValue(weights)) {
-				extrinsicBaseWeight = weights.perClass[weightInfoClass]?.baseExtrinsic;
-			}
-
-			if (!extrinsicBaseWeight) {
-				throw new InternalServerError('Could not find extrinsicBaseWeight');
-			}
-
-			const len = block.extrinsics[idx].encodedLength;
-			const weight = weightInfo.weight;
-
-			const partialFee = calcFee.calc_fee(
-				BigInt(weight.toString()),
-				len,
-				extrinsicBaseWeight
+			const { dispatchClass, partialFee, error } = await this.getPartialFeeInfo(
+				extrinsics[idx].events,
+				block.extrinsics[idx].toHex(),
+				hash,
+				getFeeByEvent
 			);
 
+			if (error) {
+				extrinsics[idx].info = {
+					error,
+				};
+
+				continue;
+			}
+
 			extrinsics[idx].info = api.createType('RuntimeDispatchInfo', {
-				weight,
-				class: weightInfo.class,
+				weight: weightInfo.weight,
+				class: dispatchClass,
 				partialFee: partialFee,
 			});
 		}
@@ -359,7 +345,7 @@ export class BlocksService extends AbstractService {
 		events: Vec<EventRecord> | string,
 		registry: Registry,
 		extrinsicDocs: boolean
-	) {
+	): IExtrinsic[] {
 		const defaultSuccess = typeof events === 'string' ? events : false;
 
 		return block.extrinsics.map((extrinsic) => {
@@ -469,157 +455,6 @@ export class BlocksService extends AbstractService {
 	}
 
 	/**
-	 * Create calcFee from params or return `null` if calcFee cannot be created.
-	 *
-	 * @param api ApiPromise
-	 * @param parentHash Hash of the parent block
-	 * @param block Block which the extrinsic is from
-	 */
-	private async createCalcFee(
-		api: ApiPromise,
-		historicApi: ApiDecoration<'promise'>,
-		parentHash: Hash,
-		block: Block
-	): Promise<ICalcFee> {
-		const parentParentHash: Hash = await this.getParentParentHash(
-			api,
-			parentHash,
-			block
-		);
-
-		const version = await api.rpc.state.getRuntimeVersion(parentParentHash);
-
-		const specName = version.specName.toString();
-		const specVersion = version.specVersion.toNumber();
-
-		if (this.minCalcFeeRuntime && specVersion < this.minCalcFeeRuntime) {
-			return {
-				specVersion,
-				specName,
-			};
-		}
-
-		/**
-		 * This will remain using the original api.query.*.*.at to retrieve the multiplier
-		 * of the `parentHash` block.
-		 */
-		const multiplier =
-			await api.query.transactionPayment?.nextFeeMultiplier?.at(parentHash);
-
-		const perByte = historicApi.consts.transactionPayment
-			?.transactionByteFee as Balance;
-		const extrinsicBaseWeightExists =
-			historicApi.consts.system.extrinsicBaseWeight ||
-			historicApi.consts.system.blockWeights.perClass.normal.baseExtrinsic;
-		const { weightToFee } = historicApi.consts.transactionPayment;
-
-		if (!perByte || !extrinsicBaseWeightExists || !multiplier || !weightToFee) {
-			// This particular runtime version is not supported with fee calcs or
-			// does not have the necessay materials to build calcFee
-			return {
-				specVersion,
-				specName,
-			};
-		}
-
-		const coefficients = weightToFee.map((c) => {
-			return {
-				// Anything that could overflow Number.MAX_SAFE_INTEGER needs to be serialized
-				// to BigInt or string.
-				coeffInteger: c.coeffInteger.toString(10),
-				coeffFrac: c.coeffFrac.toNumber(),
-				degree: c.degree.toNumber(),
-				negative: c.negative,
-			};
-		});
-
-		const weights = this.getWeight(historicApi);
-
-		const calcFee = CalcFee.from_params(
-			coefficients,
-			multiplier.toString(10),
-			perByte.toString(10),
-			specName,
-			specVersion
-		);
-
-		return {
-			calcFee,
-			specName,
-			specVersion,
-			weights,
-		};
-	}
-
-	/**
-	 *	Get a formatted blockweight store value for the runtime corresponding to the given block hash.
-	 *
-	 * @param api ApiPromise
-	 * @param blockHash Hash of a block in the runtime to get the extrinsic base weight(s) for
-	 */
-	private getWeight(historicApi: ApiDecoration<'promise'>): WeightValue {
-		const {
-			consts: { system },
-		} = historicApi;
-
-		let weightValue;
-		if (system.blockWeights?.perClass) {
-			const { normal, operational, mandatory } = system.blockWeights?.perClass;
-
-			const perClass = {
-				normal: {
-					baseExtrinsic: normal.baseExtrinsic.toBigInt(),
-				},
-				operational: {
-					baseExtrinsic: operational.baseExtrinsic.toBigInt(),
-				},
-				mandatory: {
-					baseExtrinsic: mandatory.baseExtrinsic.toBigInt(),
-				},
-			};
-
-			weightValue = { perClass };
-		} else if (system.extrinsicBaseWeight) {
-			weightValue = {
-				extrinsicBaseWeight: (
-					system.extrinsicBaseWeight as unknown as AbstractInt
-				).toBigInt(),
-			};
-		} else {
-			throw new InternalServerError(
-				'Could not find a extrinsic base weight in metadata'
-			);
-		}
-
-		return weightValue;
-	}
-
-	/**
-	 * The block where the runtime is deployed falsely proclaims it would
-	 * be already using the new runtime. This workaround therefore uses the
-	 * parent of the parent in order to determine the correct runtime under which
-	 * this block was produced.
-	 *
-	 * @param api ApiPromise to use for rpc call
-	 * @param parentHash Used to identify the runtime in a block
-	 * @param block Used to make sure we dont
-	 */
-	private async getParentParentHash(
-		api: ApiPromise,
-		parentHash: Hash,
-		block: Block
-	): Promise<Hash> {
-		let parentParentHash: Hash;
-		if (block.header.number.toNumber() > 1) {
-			parentParentHash = (await api.rpc.chain.getHeader(parentHash)).parentHash;
-		} else {
-			parentParentHash = parentHash;
-		}
-
-		return parentParentHash;
-	}
-
-	/**
 	 * Fetch events for the specified block.
 	 *
 	 * @param historicApi ApiDecoration to use for the query
@@ -632,6 +467,153 @@ export class BlocksService extends AbstractService {
 		} catch {
 			return 'Unable to fetch Events, cannot confirm extrinsic status. Check pruning settings on the node.';
 		}
+	}
+
+	/**
+	 * This will check whether we should query the fee by `payment::queryInfo`
+	 * or by an extrinsics events.
+	 *
+	 * @param events The events to search through for a partialFee
+	 * @param extrinsicHex Hex of the given extrinsic
+	 * @param hash Blockhash we are querying
+	 * @param getFeeByEvent `FeeByEvent` query parameter
+	 */
+	private async getPartialFeeInfo(
+		events: ISanitizedEvent[],
+		extrinsicHex: string,
+		hash: BlockHash,
+		getFeeByEvent: boolean
+	) {
+		const { api } = this;
+		const { class: dispatchClass, partialFee } =
+			await api.rpc.payment.queryInfo(extrinsicHex, hash);
+
+		/**
+		 * Check if we should retrieve the partial_fee from the Events
+		 */
+		let fee: Balance | string = partialFee;
+		let error: string | undefined;
+		if (getFeeByEvent) {
+			const feeInfo = this.getPartialFeeByEvents(events, partialFee);
+			fee = feeInfo.partialFee;
+			error = feeInfo.error;
+		}
+
+		return {
+			partialFee: fee,
+			dispatchClass,
+			error,
+		};
+	}
+
+	/**
+	 * This searches through an extrinsics given events to see if there is a partialFee
+	 * within the data. If the estimated partialFee is within a given difference of the
+	 * found fee within the data than we return that result.
+	 *
+	 * The order of the events we search through are:
+	 * 1.Balances::Event::Withdraw
+	 * 2.Treasury::Event::Deposit
+	 * 3.Balances::Event::Deposit
+	 *
+	 * @param events The events to search through for a partialFee
+	 * @param partialFee Estimated partialFee given by `payment::queryInfo`
+	 */
+	private getPartialFeeByEvents(
+		events: ISanitizedEvent[],
+		partialFee: Balance
+	): { partialFee: string; error?: string } {
+		// Check Event:Withdraw event for the balances pallet
+		const withdrawEvent = this.findEvent(events, 'balances', Event.withdraw);
+		if (withdrawEvent.length > 0 && withdrawEvent[0].data) {
+			const dataArr = withdrawEvent[0].data.toJSON();
+			if (Array.isArray(dataArr)) {
+				const fee = (dataArr as Array<number>)[dataArr.length - 1];
+
+				// The difference between values is 00.00001% or less so they are alike.
+				if (this.areFeesSimilar(new BN(fee), partialFee)) {
+					return {
+						partialFee: fee.toString(),
+					};
+				}
+			}
+		}
+
+		// Check the Event::Deposit for the treasury pallet
+		const treasuryEvent = this.findEvent(events, 'treasury', Event.deposit);
+		if (treasuryEvent.length > 0 && treasuryEvent[0].data) {
+			const dataArr = treasuryEvent[0].data.toJSON();
+			if (Array.isArray(dataArr)) {
+				const fee = (dataArr as Array<number>)[0];
+
+				// The difference between values is 00.00001% or less so they are alike.
+				if (this.areFeesSimilar(new BN(fee), partialFee)) {
+					return {
+						partialFee: fee.toString(),
+					};
+				}
+			}
+		}
+
+		// Check Event::Deposit events for the balances pallet.
+		const depositEvents = this.findEvent(events, 'balances', Event.deposit);
+		if (depositEvents.length > 0) {
+			let sumOfFees = new BN(0);
+			depositEvents.forEach(
+				({ data }) =>
+					(sumOfFees = sumOfFees.add(new BN(data[data.length - 1].toString())))
+			);
+
+			// The difference between values is 00.00001% or less so they are alike.
+			if (this.areFeesSimilar(sumOfFees, partialFee)) {
+				return {
+					partialFee: sumOfFees.toString(),
+				};
+			}
+		}
+
+		return {
+			partialFee: partialFee.toString(),
+			error: 'Could not find a reliable fee within the events data.',
+		};
+	}
+
+	/**
+	 * Find the corresponding events relevant to the passed in pallet, and method name.
+	 *
+	 * @param events The events to search through for a partialFee
+	 * @param palletName Pallet to search for
+	 * @param methodName Method to search for
+	 */
+	private findEvent(
+		events: ISanitizedEvent[],
+		palletName: string,
+		methodName: string
+	): ISanitizedEvent[] {
+		return events.filter(
+			({ method, data }) =>
+				isFrameMethod(method) &&
+				method.method === methodName &&
+				method.pallet === palletName &&
+				data
+		);
+	}
+
+	/**
+	 * Checks to see if the value in an event is within 00.00001% accuracy of
+	 * the queried `partialFee` from `rpc::payment::queryInfo`.
+	 *
+	 * @param eventBalance Balance returned in the data of an event
+	 * @param partialFee Fee queried from `rpc::payment::queryInfo`
+	 * @param diff difference between the
+	 */
+	private areFeesSimilar(eventBalance: BN, partialFee: BN): boolean {
+		const diff = subIntegers(eventBalance, partialFee);
+
+		return (
+			eventBalance.toString().length - diff.toString().length > 5 &&
+			eventBalance.toString().length === partialFee.toString().length
+		);
 	}
 
 	/**
@@ -660,7 +642,7 @@ export class BlocksService extends AbstractService {
 	): (Codec | ISanitizedCall)[] {
 		return argsArray.map((argument) => {
 			if (argument instanceof GenericCall) {
-				return this.parseGenericCall(argument, registry);
+				return this.parseGenericCall(argument as GenericCall, registry);
 			}
 
 			return argument;
@@ -693,7 +675,10 @@ export class BlocksService extends AbstractService {
 				if (Array.isArray(argument)) {
 					newArgs[paramName] = this.parseArrayGenericCalls(argument, registry);
 				} else if (argument instanceof GenericCall) {
-					newArgs[paramName] = this.parseGenericCall(argument, registry);
+					newArgs[paramName] = this.parseGenericCall(
+						argument as GenericCall,
+						registry
+					);
 				} else if (
 					argument &&
 					paramName === 'call' &&

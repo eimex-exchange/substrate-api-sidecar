@@ -2,6 +2,237 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [12.4.0](https://github.com/paritytech/substrate-api-sidecar/compare/v12.3.0..v12.4.0) (2022-07-13)
+
+### Features
+
+- feat: support for feeByEvent query param which will abstract the fees by events ([#970](https://github.com/paritytech/substrate-api-sidecar/pull/970)) ([92c155d](https://github.com/paritytech/substrate-api-sidecar/commit/92c155d86f4fc8aefec65a95c69836a81d7d3330))
+
+### Chores
+
+- chore(deps): update polkadot-js api, and util-crypto ([#982](https://github.com/paritytech/substrate-api-sidecar/pull/982)) ([c34bdde](https://github.com/paritytech/substrate-api-sidecar/commit/c34bddedbf55b26b83dcbfa8f7ef544bbedbcab1))
+
+### Tests
+
+- test(e2e): update validate endpoint ([#979](https://github.com/paritytech/substrate-api-sidecar/pull/979)) ([0a911de](https://github.com/paritytech/substrate-api-sidecar/commit/0a911de995d211116797d6355e11e74aa6ef7808))
+
+## Compatibility
+
+Tested against:
+- Polkadot v9250
+- Kusama v9250
+- Westend v9250
+
+## [12.3.0](https://github.com/paritytech/substrate-api-sidecar/compare/v12.2.0..v12.3.0) (2022-07-06)
+
+### Features
+
+- feat: Added the network and accountId to the response of validate endpoint ([#926](https://github.com/paritytech/substrate-api-sidecar/pull/926)) ([ef513cc](https://github.com/paritytech/substrate-api-sidecar/commit/ef513cc7f26773df776b9fe77cef8046bcadcea6)) Contributed by [Imod7](https://github.com/Imod7)
+
+### Bug Fixes
+
+- fix(pallets): deprecation warning adjustment ([#973](https://github.com/paritytech/substrate-api-sidecar/pull/973)) ([5514631](https://github.com/paritytech/substrate-api-sidecar/commit/55146315be366ea770339ef0f326c36d607a655a))
+
+### Chores
+
+- chore(deps): update polkadot.js, and fix type compilation ([#972](https://github.com/paritytech/substrate-api-sidecar/pull/972)) ([67f5bad](https://github.com/paritytech/substrate-api-sidecar/commit/67f5badb330c68b2ac2e967976ab7560b7a33c40))
+- chore(deps): update polkadot-js api, and util-crypto ([#976](https://github.com/paritytech/substrate-api-sidecar/pull/976)) ([0dd3f63](https://github.com/paritytech/substrate-api-sidecar/commit/0dd3f6334c8f89a38c8bf2bce0537bcc28021df7))
+- chore(dev): update @substrate/dev ([#977](https://github.com/paritytech/substrate-api-sidecar/pull/977)) ([2c3ce3e](https://github.com/paritytech/substrate-api-sidecar/commit/2c3ce3ed09bf9cc010d907bf08e15d946323b3ac))
+
+## Compatibility
+
+Tested against:
+- Polkadot v9240
+- Kusama v9240
+- Westend v9240
+
+## [12.2.0](https://github.com/paritytech/substrate-api-sidecar/compare/v12.1.1..v12.2.0) (2022-06-22)
+
+### Features
+
+- feat: add /blocks that enforces range query param ([#954](https://github.com/paritytech/substrate-api-sidecar/pull/954)) ([f8ab1ec](https://github.com/paritytech/substrate-api-sidecar/commit/f8ab1ec965ae2fde9ab162371cf3163e6d4ff5b9))
+    - This Feature provides a new endpoints called `/blocks` which allows you to query a range of blocks maxing out at 500. An example query would be `/blocks?range=0-499`.
+
+### Bug Fixes
+
+- fix: set minCalcFee runtime to 1058 for kusama ([#966](https://github.com/paritytech/substrate-api-sidecar/pull/966)) ([e3adacc](https://github.com/paritytech/substrate-api-sidecar/commit/e3adaccd1d57b042942c46a0cbfe02ae42a8481f))
+- fix(scripts): jest pass-fail bug ([#944](https://github.com/paritytech/substrate-api-sidecar/pull/944)) ([44482aa](https://github.com/paritytech/substrate-api-sidecar/commit/44482aa93bc0d558e2642f85238396162d550dc4))
+
+### Chores
+
+- chore(deps): update polkadot-js api, and util-crypto ([#967](https://github.com/paritytech/substrate-api-sidecar/pull/967)) ([5dd8332](https://github.com/paritytech/substrate-api-sidecar/commit/5dd83329ed4f8c970ab2d88b59e559811e40e1be))
+
+### CI
+
+- ci: update node version in docker ([#956](https://github.com/paritytech/substrate-api-sidecar/pull/956)) ([a6a4bdb](https://github.com/paritytech/substrate-api-sidecar/commit/a6a4bdba8a29a7547a4a767dea537b678eebfe6a))
+- ci: increase benchmark threshold ([#962](https://github.com/paritytech/substrate-api-sidecar/pull/962)) ([bb5dea9](https://github.com/paritytech/substrate-api-sidecar/commit/bb5dea947790bce00af7b2794a83f23f53ab392a))
+
+### Docs
+
+- docs: fix includeFee query param ([#965](https://github.com/paritytech/substrate-api-sidecar/pull/965)) ([b7a5843](https://github.com/paritytech/substrate-api-sidecar/commit/b7a5843ec5f7a77f7dec10c7c469290a5cef6528))
+
+## Compatibility
+
+Tested against:
+- Polkadot v9240
+- Kusama v9240
+- Westend v9240
+
+## [12.1.1](https://github.com/paritytech/substrate-api-sidecar/compare/v12.1.0..v12.1.1) (2022-06-14)
+
+### Bug Fixes
+
+- fix(deps): update pjs api ([#957](https://github.com/paritytech/substrate-api-sidecar/pull/957)) ([db4ae5e](https://github.com/paritytech/substrate-api-sidecar/commit/db4ae5ed2fcf423f94ccaf53864c263e656c579e))
+
+### Chore
+
+- chore(dev): update dev dep ([#955](https://github.com/paritytech/substrate-api-sidecar/pull/955)) ([1b27f03](https://github.com/paritytech/substrate-api-sidecar/commit/1b27f03f1f4f7b10d3fcd46c2a98efa0d53d236b))
+- chore(docs): update docs deps, and remove json-loader ([#950](https://github.com/paritytech/substrate-api-sidecar/pull/950)) ([8e3e408](https://github.com/paritytech/substrate-api-sidecar/commit/8e3e408376d0e8cbb268d715f339b17c31c1b404))
+- chore: bump yarn 3.2.1 ([#947](https://github.com/paritytech/substrate-api-sidecar/pull/947)) ([51f9e34](https://github.com/paritytech/substrate-api-sidecar/commit/51f9e34b0a5203c7518c23bac1c958b1dd49bea8))
+
+### Docs
+
+- docs(bug): revert docs update ([#958](https://github.com/paritytech/substrate-api-sidecar/pull/958)) ([eb0ec7f](https://github.com/paritytech/substrate-api-sidecar/commit/eb0ec7f26001fdbc753e8c03654c3101123462d9))
+
+## Compatibility
+
+Tested against:
+- Polkadot v9230
+- Kusama v9230
+- Westend v9230
+
+## [12.1.0](https://github.com/paritytech/substrate-api-sidecar/compare/v12.0.1..v12.1.0) (2022-06-07)
+
+### Features
+
+- feat: add query param to add a tip, partialFee, and priority field to each extrinsic for /node/transaction-pool ([#931](https://github.com/paritytech/substrate-api-sidecar/pull/931)) ([8241d34](https://github.com/paritytech/substrate-api-sidecar/commit/8241d340e494b86087b31ae7a3176a195e042c4e))
+
+### Bug Fixes
+
+- fix(polkadot-js): update api, and common deps ([#934](https://github.com/paritytech/substrate-api-sidecar/pull/934)) ([fd7021c](https://github.com/paritytech/substrate-api-sidecar/commit/fd7021ceed0ef722f3fbf585e373b4994e54bf61))
+
+### Test
+
+- test: silence unnecessary logging for tests ([#916](https://github.com/paritytech/substrate-api-sidecar/pull/916)) ([9633480](https://github.com/paritytech/substrate-api-sidecar/commit/96334802cefaf60474e2e6ff005c164bc434299f))
+
+## Compatibility
+
+Tested against:
+- Polkadot v9230
+- Kusama v9230
+- Westend v9230
+
+## [12.0.1](https://github.com/paritytech/substrate-api-sidecar/compare/v12.0.0..v12.0.1) (2022-06-03)
+
+### Bug Fixes
+
+- fix(calc): rework calculating fees ([#937](https://github.com/paritytech/substrate-api-sidecar/pull/937)) ([3306466](https://github.com/paritytech/substrate-api-sidecar/commit/330646699db4db6077eb7d14896dfccef4cde2b3))
+- fix(imports): chains-config imports ([#932](https://github.com/paritytech/substrate-api-sidecar/pull/932)) ([f4f531a](https://github.com/paritytech/substrate-api-sidecar/commit/f4f531aaf52487cdd8958cc92ee6cde20e7b65ca))
+- fix(imports): NodeTransactionPoolService response import ([#929](https://github.com/paritytech/substrate-api-sidecar/pull/929)) ([ad2fbaa](https://github.com/paritytech/substrate-api-sidecar/commit/ad2fbaaff2c3573b068110d1985a2ed4b7e8dd31))
+
+### Chore
+
+- chore(license): append the license to the top of each file ([#927](https://github.com/paritytech/substrate-api-sidecar/pull/927)) ([8906816](https://github.com/paritytech/substrate-api-sidecar/commit/8906816934b8e6bd5bf98393f83d55a6711d296e))
+
+## Compatibility
+
+Tested against:
+- Polkadot v9230
+- Kusama v9230
+- Westend v9230
+
+## [12.0.0](https://github.com/paritytech/substrate-api-sidecar/compare/v11.4.1..v12.0.0) (2022-05-24)
+
+### Breaking Changes
+
+Notes: Substrate API Sidecar will no longer support pulling custom types from `@polkadot/apps-config`. For all of the current endpoint's in sidecar there should be no effect, but if there are any methods or types that can't be decorated from the metadata you will see warning's emitted from the logger. You may still apply your own custom types in sidecar, please refer to the [custom substrate types](https://github.com/paritytech/substrate-api-sidecar#custom-substrate-types) portion of the readme, and if you would like more information please refer the to PR below. If you see any issues, or need additional guidance feel free to file an issue [here](https://github.com/paritytech/substrate-api-sidecar/issues).
+
+- fix(apps-config)!: remove apps-config from sidecar ([#924](https://github.com/paritytech/substrate-api-sidecar/pull/924)) ([e2e8b59](https://github.com/paritytech/substrate-api-sidecar/commit/e2e8b59780d5ffe16df61d02e7c113b252d7f714))
+
+
+### Bug Fixes
+
+- fix: update polkadot.js api ([#928](https://github.com/paritytech/substrate-api-sidecar/pull/928)) ([7ac2178](https://github.com/paritytech/substrate-api-sidecar/commit/7ac2178586881c41aa7f96dca30b3fdc6235a053))
+
+## [11.4.1](https://github.com/paritytech/substrate-api-sidecar/compare/v11.4.0..v11.4.1) (2022-05-18)
+
+**Upgrade Priority** High (Required for users looking to update to 11.3.18, 11.3.19, or 11.4.0)
+
+### Bug Fixes
+
+- fix: revert apps-config to stable version ([#921](https://github.com/paritytech/substrate-api-sidecar/pull/921)) ([faf1595](https://github.com/paritytech/substrate-api-sidecar/commit/faf1595bd5b1dd3280c8e94a9cfdced96b53f5e6))
+
+## [11.4.0](https://github.com/paritytech/substrate-api-sidecar/compare/v11.3.19..v11.4.0) (2022-05-18)
+
+**Upgrade Priority** low
+
+### Features
+
+- feat(balance-info): add query param to convert free balance to human readable format ([#914](https://github.com/paritytech/substrate-api-sidecar/pull/914)) ([f1e03d6](https://github.com/paritytech/substrate-api-sidecar/commit/f1e03d6c771d74cd4848975c2ebdf42bd9ab8d8b))
+
+### Bug Fixes
+
+- fix(deps): update polkadot.js common, api, type interfaces ([#918](https://github.com/paritytech/substrate-api-sidecar/pull/918)) ([6baf526](https://github.com/paritytech/substrate-api-sidecar/commit/6baf526b0627b3d5ac662946a9403db72b53a617))
+- fix(dev): updates substrate-js-dev, and fixes latest eslint rules ([#913](https://github.com/paritytech/substrate-api-sidecar/pull/913))([12c5914](https://github.com/paritytech/substrate-api-sidecar/commit/12c5914d99e5da646c9139bf1cc944edbdb34d78))
+
+## Compatibility
+
+Tested against:
+- Polkadot v9210
+- Kusama v9210
+- Westend v9210
+
+## [11.3.19](https://github.com/paritytech/substrate-api-sidecar/compare/v11.3.18..v11.3.19) (2022-05-10)
+
+**Upgrade Priority** Low
+
+### Bug Fixes
+
+- fix(deps): update pjs api ([#915](https://github.com/paritytech/substrate-api-sidecar/pull/915)) ([f089967](https://github.com/paritytech/substrate-api-sidecar/commit/f0899671f4c51ec9179183242c0ae5155b21d63b))
+
+## Compatibility
+
+Tested against:
+- Polkadot v9200
+- Kusama v9200
+- Westend v9200
+
+
+## [11.3.18](https://github.com/paritytech/substrate-api-sidecar/compare/v11.3.17..v11.3.18) (2022-05-03)
+
+**Upgrade Priority** Medium (For users querying `/runtime/metadata`. Fixes decoding all constants for V14)
+
+### Bug Fixes
+
+- fix(deps): update pjs api ([#906](https://github.com/paritytech/substrate-api-sidecar/pull/906)) ([528420c](https://github.com/paritytech/substrate-api-sidecar/commit/528420c29a1635b594730f781e01c6743082934a))
+- fix: decode Bytes types for /runtime/metadata correctly ([#907](https://github.com/paritytech/substrate-api-sidecar/pull/907)) ([ce48c14](https://github.com/paritytech/substrate-api-sidecar/commit/ce48c144a2ebc566e323a2a32df5a187ffd4aad4))
+- fix: update substrate-js-dev, add update-pjs script ([#904](https://github.com/paritytech/substrate-api-sidecar/pull/904)) ([59aabc3](https://github.com/paritytech/substrate-api-sidecar/commit/59aabc3006a5b7d2b11d7485ce0b53322b04815f))
+
+## Compatibility
+
+Tested against:
+- Polkadot v9190
+- Kusama v9190
+- Westend v9190
+
+
+## [11.3.17](https://github.com/paritytech/substrate-api-sidecar/compare/v11.3.16..v11.3.17) (2022-04-21)
+
+**Upgrade Priority** High (For users querying chains using v9190, and need partialFee information)
+
+### Bug Fixes
+
+- fix(bug): handle lengthToFee given runtime v9190 ([#900](https://github.com/paritytech/substrate-api-sidecar/pull/900)) ([992b458](https://github.com/paritytech/substrate-api-sidecar/commit/992b458b91f95c43aeaa331130da1214e77f627c))
+- fix(deps): update pjs api ([#897](https://github.com/paritytech/substrate-api-sidecar/pull/897)) ([511fcf9](https://github.com/paritytech/substrate-api-sidecar/commit/511fcf96b033a7215aa84474a16561497cad5d19))
+
+## Compatibility
+
+Tested against:
+- Polkadot v9190
+- Kusama v9190
+- Westend v9190
+
+
 ## [11.3.16](https://github.com/paritytech/substrate-api-sidecar/compare/v11.3.15..v11.3.16) (2022-04-13)
 
 **Upgrade Priority** Low
@@ -12,7 +243,7 @@ All notable changes to this project will be documented in this file. See [standa
 - fix: remove blockWeightsStore ([#891](https://github.com/paritytech/substrate-api-sidecar/pull/891)) ([ce701a0](https://github.com/paritytech/substrate-api-sidecar/commit/ce701a0a2d44a2a7febd0b23f50128c5ebab7378))
 - fix: update polkadot-js deps, adjust tests for getWeight ([#890](https://github.com/paritytech/substrate-api-sidecar/pull/890)) ([c348363](https://github.com/paritytech/substrate-api-sidecar/commit/c3483631775e10cd436e1b5b6175dbb4ea59798e))
 
-### Docs 
+### Docs
 
 - docs(release): abstract the release process into its own file ([#894](https://github.com/paritytech/substrate-api-sidecar/pull/894)) ([eece110](https://github.com/paritytech/substrate-api-sidecar/commit/eece110cbc5c9252109c31c2e7d7b850492fca1d))
 - docs: updated README with trace endpoints & requirements note ([#872](https://github.com/paritytech/substrate-api-sidecar/pull/872)) ([d323857](https://github.com/paritytech/substrate-api-sidecar/commit/d3238573a838a46a94684f7598684debd8959471)) Contributed by ([Imod7](https://github.com/Imod7))
@@ -80,7 +311,7 @@ Tested against:
 - chore(release-calc): 0.2.8 ([#860](https://github.com/paritytech/substrate-api-sidecar/pull/860)) ([cf8297d](https://github.com/paritytech/substrate-api-sidecar/commit/cf8297dad4cfaf3ec4ccf5b7e79ff02f4ceda100))
 - fix: support fee calculation for Bifrost ([#853](https://github.com/paritytech/substrate-api-sidecar/pull/853)) ([cd33db7](https://github.com/paritytech/substrate-api-sidecar/commit/cd33db78849be9d3f229aefeccdc42d3a5c53b05)) Contributed by ([ark930](https://github.com/ark930))
 
-## Compatibility 
+## Compatibility
 
 Tested against:
 - Polkadot v9170
@@ -172,7 +403,7 @@ Tested against:
 
 ### Bug Fixes
 
-- fix: update polkadot-js/api, and rxjs ([#830](https://github.com/paritytech/substrate-api-sidecar/pull/830)) ([90083d1](https://github.com/paritytech/substrate-api-sidecar/commit/90083d1ef3ae0d336c4d9eefc9807efdd50416c8)) 
+- fix: update polkadot-js/api, and rxjs ([#830](https://github.com/paritytech/substrate-api-sidecar/pull/830)) ([90083d1](https://github.com/paritytech/substrate-api-sidecar/commit/90083d1ef3ae0d336c4d9eefc9807efdd50416c8))
 - fix: retrieving public endpoints with `createWsEndpoints` function ([#829](https://github.com/paritytech/substrate-api-sidecar/pull/829)) ([a019c8b](https://github.com/paritytech/substrate-api-sidecar/commit/a019c8b1ddf130e1f1405012996585ec18a0e243)) Contributed by: ([Imod7](https://github.com/Imod7))
 - fix: ?at bug and endingOffset conditionals ([#824](https://github.com/paritytech/substrate-api-sidecar/pull/824)) ([1774e90](https://github.com/paritytech/substrate-api-sidecar/commit/1774e900832aad3467130fba130fd7ab09940a31))
 - fix: update all polkadot-js deps ([#828](https://github.com/paritytech/substrate-api-sidecar/pull/828)) ([23d4cec](https://github.com/paritytech/substrate-api-sidecar/commit/23d4cec7cfe3dc4295f50afab58f06d72e52ce64))

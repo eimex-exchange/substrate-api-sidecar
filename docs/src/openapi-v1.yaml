@@ -8,7 +8,7 @@ info:
   license:
     name: GPL-3.0-or-later
     url: https://github.com/paritytech/substrate-api-sidecar/blob/master/LICENSE
-  version: 11.3.16
+  version: 12.4.0
 tags:
 - name: accounts
 - name: blocks
@@ -162,6 +162,14 @@ paths:
         schema:
           type: string
           description: Token symbol
+      - name: denominated
+        in: query
+        description: When set to `true` it will denominate any balance's given atomic value
+          using the chains given decimal value.
+        required: false
+        schema:
+          type: boolean
+          default: false
       responses:
         "200":
           description: successful operation
@@ -336,15 +344,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /accounts/{accountId}/validate:
+  /accounts/{address}/validate:
     get:
       tags:
       - accounts
       summary: Validate a given address.
-      description: Returns whether the given address is valid ss58 format and the ss58 prefix if the address has one.
+      description: Returns whether the given address is valid ss58 format, the ss58 prefix if the address has one,
+        the network address format, and what the account ID is for this address.
       operationId: getValidationByAccountId
       parameters:
-      - name: accountId
+      - name: address
         in: path
         description: SS58 or Hex address of the account.
         required: true
@@ -358,6 +367,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountValidation'
+  /blocks:
+    get:
+      tags:
+      - blocks
+      summary: Get a range of blocks by their height.
+      description: Given a range query parameter return an array of all the blocks within that range.
+      operationId: getBlock
+      parameters:
+      - name: range
+        in: query
+        description: A range of integers. There is a max limit of 500 blocks per request.
+        required: true
+        example: 0-499
+        schema:
+          type: string
+      - name: eventDocs
+        in: query
+        description: When set to `true`, every event will have an extra `docs`
+          property with a string of the events documentation.
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: extrinsicDocs
+        in: query
+        description: When set to `true`, every extrinsic will have an extra `docs`
+          property with a string of the extrinsics documentation.
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: feeByEvent
+        in: query
+        description: When set to `true`, extrinsics will have their fees retrieved by their events.
+          This query param will use a fee estimation via `rpc::payment::query_info` to accurately identify 
+          which event has the corresponding fee information that is closest to the value provided by `query_info`.
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Blocks'
+        "400":
+          description: invalid Block identifier supplied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'      
   /blocks/{blockId}:
     get:
       tags:
@@ -386,6 +448,15 @@ paths:
         in: query
         description: When set to `true`, every extrinsic will have an extra `docs`
           property with a string of the extrinsics documentation.
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: feeByEvent
+        in: query
+        description: When set to `true`, extrinsics will have their fees retrieved by their events.
+          This query param will use a fee estimation via `rpc::payment::query_info` to accurately identify 
+          which event has the corresponding fee information that is closest to the value provided by `query_info`.
         required: false
         schema:
           type: boolean
@@ -470,6 +541,15 @@ paths:
         schema:
           type: boolean
           default: false
+      - name: feeByEvent
+        in: query
+        description: When set to `true`, extrinsics will have their fees retrieved by their events.
+          This query param will use a fee estimation via `rpc::payment::query_info` to accurately identify 
+          which event has the corresponding fee information that is closest to the value provided by `query_info`.
+        required: false
+        schema:
+          type: boolean
+          default: false
       responses:
         "200":
           description: successful operation
@@ -513,6 +593,15 @@ paths:
         in: query
         description: When set to `true`, every extrinsic will have an extra `docs`
           property with a string of the extrinsics documentation.
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: feeByEvent
+        in: query
+        description: When set to `true`, extrinsics will have their fees retrieved by their events.
+          This query param will use a fee estimation via `rpc::payment::query_info` to accurately identify 
+          which event has the corresponding fee information that is closest to the value provided by `query_info`.
         required: false
         schema:
           type: boolean
@@ -576,6 +665,14 @@ paths:
       description: Returns the extrinsics that the node knows of that have not
         been included in a block.
       operationId: getNodeTransactionPool
+      parameters:
+      - name: includeFee
+        in: query
+        description: Boolean representing whether or not to include tips, partialFee, and priority in each extrinsic.
+        required: false
+        schema:
+          type: boolean
+          default: false
       responses:
         "200":
           description: successful operation
@@ -1060,7 +1157,7 @@ paths:
         at a time. If there is no auction most fields will be `null`. If the current
         auction phase is in `vrfDelay` and you are looking to retrieve the latest winning
         bids, it is advised to query one block before `finishEnd` in the `endingPeriod` phase
-        for that auction as there technically are no winners during the `vrfDelay` and thus 
+        for that auction as there technically are no winners during the `vrfDelay` and thus
         the field is `null`.
       parameters:
       - name: at
@@ -1447,6 +1544,12 @@ components:
           description: SS58 prefix of the given address. If the address is a valid
             base58 format, but incorrect ss58, a prefix for the given address will still be returned.
           format: unsignedInteger
+        network:
+          type: string
+          description: The network based on which the given address is encoded.
+        accountId:
+          type: string
+          description: The account id of the given address.
     AccountVestingInfo:
       type: object
       description: Sidecar version's <= v10.0.0 have a`vesting` return value that defaults to an object for
@@ -1625,6 +1728,10 @@ components:
         Note: Block finalization does not correspond to consensus, i.e. whether
         the block is in the canonical chain. It denotes the finalization of block
         _construction._
+    Blocks:
+      type: array
+      items: 
+        $ref: '#/components/schemas/Block'
     BlockFinalize:
       type: object
       properties:
@@ -2757,6 +2864,18 @@ components:
                   type: string
                   format: hex
                   description: Scale encoded extrinsic.
+                tip:
+                  type: string
+                  format: unsignedInteger
+                  description: The tip included in the extrinsic. Only included if the query param `includeFee` is set to true.
+                priority:
+                  type: string
+                  format: unsignedInteger
+                  description: Computed priority of an extrinsic. Only included if the query param `includeFee` is set to true.
+                partialFee:
+                  type: string
+                  format: unsignedInteger
+                  description: Provided `partialFee` of an extrinsic. Only included if the query param `includeFee` is set to true.
     TransactionSuccess:
       type: object
       properties:

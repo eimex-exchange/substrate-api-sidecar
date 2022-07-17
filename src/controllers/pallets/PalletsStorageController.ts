@@ -1,3 +1,19 @@
+// Copyright 2017-2022 Parity Technologies (UK) Ltd.
+// This file is part of Substrate API Sidecar.
+//
+// Substrate API Sidecar is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import { ApiPromise } from '@polkadot/api';
 import { stringCamelCase } from '@polkadot/util';
 import { RequestHandler } from 'express-serve-static-core';
@@ -26,7 +42,7 @@ export default class PalletsStorageController extends AbstractController<Pallets
 
 		this.initRoutes();
 		this.deprecationMsg =
-			'The adjustMetadataV13 query parameter is deprecated and will be removed in v12 of sidecar';
+			'The adjustMetadataV13 query parameter has been deprecated. It will still be available to use for historic blocks.';
 	}
 
 	protected initRoutes(): void {

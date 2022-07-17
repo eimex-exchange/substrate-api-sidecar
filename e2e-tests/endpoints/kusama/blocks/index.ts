@@ -1,4 +1,21 @@
+// Copyright 2017-2022 Parity Technologies (UK) Ltd.
+// This file is part of Substrate API Sidecar.
+//
+// Substrate API Sidecar is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import block9253 from './9253.json';
+import block2101439 from './2101439.json';
 import block2350438 from './2350438.json';
 import block2684767 from './2684767.json';
 import block2713513 from './2713513.json';
@@ -35,6 +52,7 @@ import block11800000 from './11800000.json';
 
 export const kusamaBlockEndpoints = [
 	['/blocks/9253', JSON.stringify(block9253)], //v1020
+	['/blocks/2101439', JSON.stringify(block2101439)], //v1058
 	['/blocks/2350438', JSON.stringify(block2350438)], //v1062
 	['/blocks/2684767', JSON.stringify(block2684767)], //v2005
 	['/blocks/2713513', JSON.stringify(block2713513)], //v2007
